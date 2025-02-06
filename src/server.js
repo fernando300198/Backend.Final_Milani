@@ -8,28 +8,28 @@ import mongoose from 'mongoose';
 
 const app = express();
 
-// Middleware
+// middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Configuración de Handlebars
+// config de Handlebars
 app.engine('handlebars', handlebars.engine());
 app.set('view engine', 'handlebars');
 app.set('views', './src/views');
 
-// Conexión a MongoDB
+// conectar a MongoDB
 const MONGO_URI = 'mongodb://127.0.0.1:27017/ecommerce'; // Usá la URL de tu MongoDB
 mongoose.connect(MONGO_URI)
     .then(() => console.log('Conectado a MongoDB'))
     .catch(error => console.error('Error conectando a MongoDB:', error));
 
-// Rutas
+// rutas
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
 app.use('/', viewsRouter);
 
-// Iniciar el servidor
+// start server
 const PORT = 8080;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

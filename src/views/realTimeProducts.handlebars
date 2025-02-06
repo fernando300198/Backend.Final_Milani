@@ -1,69 +1,96 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Productos en Tiempo Real</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    <header>
-        <h1>Productos en Tiempo Real</h1>
-        <nav>
-            <a href="/">Inicio</a> |
-            <a href="/realtimeproducts">Vista en Tiempo Real</a>
-        </nav>
-    </header>
-    <main>
-        <section>
-            <h2>Agregar Producto</h2>
-            <form id="addProductForm">
-                <input type="text" id="title" placeholder="Título" required>
-                <input type="text" id="description" placeholder="Descripción" required>
-                <input type="number" id="price" placeholder="Precio" required>
-                <button type="submit">Agregar</button>
-            </form>
-        </section>
-        <section>
-            <h2>Lista de Productos</h2>
-            <ul id="productList">
-            </ul>
-        </section>
-    </main>
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
+<h1>Productos en tiempo real</h1>
 
-        const productList = document.getElementById('productList');
-        const addProductForm = document.getElementById('addProductForm');
+<!-- filtros y ordenamientos -->
+<form id="filters-form">
+  <label for="query">Buscar por categoría o disponibilidad:</label>
+  <input type="text" id="query" name="query" placeholder="Ej: electrónica" />
 
-        // listen productos actualizados
-        socket.on('updateProducts', (products) => {
-            productList.innerHTML = '';
-            products.forEach(product => {
-                const li = document.createElement('li');
-                li.innerHTML = `<strong>${product.title}</strong> - $${product.price}<br>${product.description}
-                <button onclick="deleteProduct('${product.id}')">Eliminar</button>`;
-                productList.appendChild(li);
-            });
-        });
+  <label for="sort">Ordenar por precio:</label>
+  <select id="sort" name="sort">
+    <option value="">Sin orden</option>
+    <option value="asc">Ascendente</option>
+    <option value="desc">Descendente</option>
+  </select>
 
-        // agregar producto
-        addProductForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const newProduct = {
-                title: document.getElementById('title').value,
-                description: document.getElementById('description').value,
-                price: parseFloat(document.getElementById('price').value)
-            };
-            socket.emit('addProduct', newProduct);
-            addProductForm.reset();
-        });
+  <label for="limit">Productos por página:</label>
+  <input type="number" id="limit" name="limit" min="1" value="10" />
 
-        // eliminar producto
-        function deleteProduct(productId) {
-            socket.emit('deleteProduct', productId);
-        }
-    </script>
-</body>
-</html>
+  <button type="submit">Aplicar</button>
+</form>
+
+<!-- list de productos -->
+<div id="products-container"></div>
+
+<!-- paginación -->
+<div id="pagination">
+  <button id="prev-page" disabled>Anterior</button>
+  <span id="current-page">1</span>
+  <button id="next-page" disabled>Siguiente</button>
+</div>
+
+<script>
+  const productsContainer = document.getElementById('products-container');
+  const filtersForm = document.getElementById('filters-form');
+  const prevPageBtn = document.getElementById('prev-page');
+  const nextPageBtn = document.getElementById('next-page');
+  const currentPageSpan = document.getElementById('current-page');
+
+  let queryParams = {
+    limit: 10,
+    page: 1,
+    query: '',
+    sort: '',
+  };
+
+  // function para cargar productos desde la API
+  async function loadProducts() {
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await fetch(`/api/products?${queryString}`);
+    const data = await response.json();
+
+    if (data.status === 'success') {
+      productsContainer.innerHTML = data.payload
+        .map(
+          (product) =>
+            `<div>
+              <h3>${product.title}</h3>
+              <p>${product.description}</p>
+              <p>Precio: $${product.price}</p>
+              <p>Categoría: ${product.category}</p>
+            </div>`
+        )
+        .join('');
+
+      prevPageBtn.disabled = !data.hasPrevPage;
+      nextPageBtn.disabled = !data.hasNextPage;
+      currentPageSpan.textContent = data.page;
+    } else {
+      productsContainer.innerHTML = '<p>Error al cargar productos.</p>';
+    }
+  }
+
+  // Event listeners
+  filtersForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    queryParams.query = e.target.query.value;
+    queryParams.sort = e.target.sort.value;
+    queryParams.limit = e.target.limit.value;
+    queryParams.page = 1; 
+    loadProducts();
+  });
+
+  prevPageBtn.addEventListener('click', () => {
+    if (queryParams.page > 1) {
+      queryParams.page -= 1;
+      loadProducts();
+    }
+  });
+
+  nextPageBtn.addEventListener('click', () => {
+    queryParams.page += 1;
+    loadProducts();
+  });
+
+  // load products at start
+  loadProducts();
+</script>

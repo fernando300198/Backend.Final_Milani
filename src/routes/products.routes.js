@@ -1,38 +1,46 @@
-import { Router } from "express";
-import Product from "../models/Products.js";
+import { Router } from 'express';
+import Product from '../models/Products.js';
 
 const router = Router();
 
-router.get("/", async (req, res) => {
-    try {
-        const { limit = 10, page = 1, sort, query } = req.query;
-        const options = {
-            limit: parseInt(limit),
-            page: parseInt(page),
-            sort: sort ? { price: sort === "asc" ? 1 : -1 } : {},
-        };
+router.get('/', async (req, res) => {
+  try {
+    const { limit = 10, page = 1, query, sort } = req.query;
 
-        const filter = query ? { $or: [{ category: query }, { availability: query }] } : {};
+    // filtro dinámico
+    const filter = query ? { $or: [{ category: query }, { available: query }] } : {};
 
-        const products = await Product.paginate(filter, options);
+    // ordenamiento
+    const sortOption = sort === 'asc' ? { price: 1 } : sort === 'desc' ? { price: -1 } : {};
 
-        res.render("products", {
-            status: "success",
-            products: products.docs, // Lista de productos
-            totalPages: products.totalPages,
-            prevPage: products.prevPage,
-            nextPage: products.nextPage,
-            page: products.page,
-            hasPrevPage: products.hasPrevPage,
-            hasNextPage: products.hasNextPage,
-            prevLink: products.hasPrevPage ? `/products?page=${products.prevPage}` : null,
-            nextLink: products.hasNextPage ? `/products?page=${products.nextPage}` : null,
-        });
+    // consulta paginada
+    const products = await Product.paginate(filter, {
+      limit: parseInt(limit),
+      page: parseInt(page),
+      sort: sortOption,
+    });
 
-    } catch (error) {
-        console.error("Error fetching products:", error);
-        res.status(500).json({ status: "error", message: "Internal Server Error" });
-    }
+    // construir respuesta
+    res.json({
+      status: 'success',
+      payload: products.docs,
+      totalPages: products.totalPages,
+      prevPage: products.hasPrevPage ? products.page - 1 : null,
+      nextPage: products.hasNextPage ? products.page + 1 : null,
+      page: products.page,
+      hasPrevPage: products.hasPrevPage,
+      hasNextPage: products.hasNextPage,
+      prevLink: products.hasPrevPage
+        ? `/api/products?limit=${limit}&page=${products.page - 1}&sort=${sort}&query=${query}`
+        : null,
+      nextLink: products.hasNextPage
+        ? `/api/products?limit=${limit}&page=${products.page + 1}&sort=${sort}&query=${query}`
+        : null,
+    });
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    res.status(500).json({ status: 'error', error: 'Error al obtener los productos.' });
+  }
 });
 
 export default router;
